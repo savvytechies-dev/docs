@@ -1,0 +1,54 @@
+name: Terraform (docs infra)
+
+# Applies the docs infrastructure from CI with remote state (S3 + DynamoDB) — no local
+# state, no local applies. Assumes the shared github-deployment-role via GitHub OIDC.
+# One-time prerequisite: run terraform/bootstrap.sh with admin creds (state bucket +
+# lock table + role permissions). See DEPLOYMENT.md.
+
+on:
+  push:
+    branches: [main]
+    paths: ['terraform/**', '.github/workflows/terraform.yml']
+  pull_request:
+    paths: ['terraform/**']
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-docs
+  cancel-in-progress: false
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform plan
+        run: terraform plan -input=false -no-color
+
+      # Apply only on push/dispatch to main (not on PRs).
+      - name: Terraform apply
+        if: github.event_name != 'pull_request'
+        run: terraform apply -input=false -auto-approve -no-color

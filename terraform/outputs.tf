@@ -7,8 +7,3 @@ output "docs_website_endpoint" {
   description = "S3 website endpoint — use as the CloudFront /docs origin domain"
   value       = aws_s3_bucket_website_configuration.docs.website_endpoint
 }
-
-output "deploy_role_arn" {
-  description = "Set this as the AWS_ROLE_ARN secret on savvytechies-dev/docs"
-  value       = aws_iam_role.docs_deploy.arn
-}
