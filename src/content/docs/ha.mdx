@@ -1,0 +1,80 @@
+---
+title: High Availability & Resiliency
+description: Multi-AZ clustering, Aurora Global active-passive DR, Infinispan caching, failover behavior, RTO/RPO, and the tiered availability SLA.
+---
+
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+Availability comes in layers: within a region (Multi-AZ), across regions (Aurora Global,
+active-passive), and — as a premium option — across clouds (see [Multi-Cloud](/docs/multi-cloud/)).
+Each layer maps to an honest SLA tier.
+
+## Three tiers of state
+
+Understanding resiliency starts with **where state lives**:
+
+| State | Home | Notes |
+|---|---|---|
+| Realms, clients, users, credentials, **sessions** | **Aurora PostgreSQL** (source of truth) | `persistent-user-sessions` (KC 26 default) writes sessions to the DB |
+| In-progress logins, session near-cache, brute-force counters, action tokens | **Infinispan** (in-region) | a cache, not the system of record |
+| Access tokens | **Client** | stateless signed JWTs, validated in your app — no server round-trip |
+
+## Single region — Multi-AZ
+
+Aurora runs **Multi-AZ**: a primary plus a synchronous replica in a second AZ, with automated
+failover. Keycloak tasks span AZs and cluster via JGroups/JDBC_PING with **embedded
+Infinispan, in-region only** (no cross-site RELAY). This is the **99.9%** tier.
+
+## Multi-region — Aurora Global (active-passive)
+
+For multi-region DR we use **Aurora Global Database**: one **primary** region takes writes;
+secondary regions are **read-only**. Global Accelerator / GeoDNS health-checks route users to
+the active region with sticky affinity.
+
+<Aside type="note" title="Why active-passive, not active-active on Aurora">
+With `persistent-user-sessions`, **every login is a session-row write** and refresh is a
+session update — writes are on the hot path. Keycloak uses a **single datasource**, so you
+can't split "rare config writes to a global primary" from "hot session writes locally".
+Aurora Global has **one writer** → the honest model is active-passive. True active-active
+needs distributed SQL — that's the [YugabyteDB option](/docs/multi-cloud/).
+</Aside>
+
+- **Replication lag:** typically < 1s
+- **RPO:** ~1s (unplanned), 0 (planned)
+- **RTO:** ~1 min (managed promotion) + DNS re-route
+
+What crosses regions: **only the database** (plus a tiny cache-invalidation signal). In-flight
+login state (`authenticationSessions`) never leaves a region and is recreatable.
+
+## Failover behavior (be precise about "recovery")
+
+<Aside type="caution" title="DNS re-route ≠ end-to-end recovery">
+A common "~90s failover" figure is **DNS propagation** (3× 30s health-check + 60s TTL), not
+application recovery. For an active-passive standby, real **RTO** also includes **standby
+promotion + replication catch-up**, and in-flight logins in the failed region fail (users
+re-authenticate; recent sessions in that region may be lost within the RPO window). We quote
+recovery as promotion + catch-up, not the DNS number alone.
+</Aside>
+
+## The availability SLA, tiered by architecture
+
+| Tier | Architecture | Target SLA | Downtime budget |
+|---|---|---|---|
+| Single region | Aurora Multi-AZ | **99.9%** | ~43.8 min/month |
+| Multi-region | Aurora Global active-passive + DNS failover | **99.95%** | ~21.9 min/month |
+| Active-active multi-cloud | YugabyteDB (no failover gap) | **99.99%** | ~4.4 min/month |
+
+<Aside type="tip" title="Why 99.99% wants active-active">
+Four-nines allows only ~4.4 min/month of downtime — a single 10-minute failover blows the
+budget. An active-passive standby has a failover gap; **active-active has none**, which is why
+99.99% is offered on the YugabyteDB tier. All tiers are **backed after production maturity** —
+we don't sell four-nines on day one.
+</Aside>
+
+## Backups & recovery drills
+
+<CardGrid>
+  <Card title="Continuous backup" icon="seti:db">Aurora continuous backup + point-in-time restore; automated snapshots with defined retention.</Card>
+  <Card title="Config as data" icon="document">Realm/user export enables rebuild and cross-region/cross-cloud seeding.</Card>
+  <Card title="Tested failover" icon="approve-check">SLA tiers are earned via measured, rehearsed failover — not assumed from the diagram.</Card>
+</CardGrid>

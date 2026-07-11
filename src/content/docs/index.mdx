@@ -1,0 +1,42 @@
+---
+title: SavvyTechies Documentation
+description: Managed multi-tenant Keycloak — architecture, high availability, multi-cloud, migration, upgrades, realms, analytics, and security.
+template: splash
+hero:
+  tagline: Managed multi-tenant Keycloak on AWS — the honest, operational guide to what we run and how you run on it.
+  actions:
+    - text: Platform Architecture
+      link: /docs/architecture/
+      icon: right-arrow
+      variant: primary
+    - text: Migrate from Auth0 / Cognito
+      link: /docs/migration/
+      icon: external
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## What this is
+
+SavvyTechies runs **Keycloak** as a managed, multi-tenant platform: you get enterprise
+identity (SSO, MFA, OIDC/SAML, RBAC) without operating Keycloak, Postgres, caching, upgrades,
+or HA yourself. These docs describe **what we actually run** — a single-cloud, multi-region
+architecture with optional cross-cloud standby — not an aspirational diagram.
+
+<CardGrid>
+  <LinkCard title="Architecture" href="/docs/architecture/" description="Fargate data plane, serverless control plane, cell-based multi-tenancy, Aurora source of truth." />
+  <LinkCard title="High Availability & Resiliency" href="/docs/ha/" description="Multi-AZ, Aurora Global active-passive, failover, RTO/RPO, and the tiered SLA." />
+  <LinkCard title="Multi-Cloud" href="/docs/multi-cloud/" description="Cross-cloud warm standby (AWS→Azure) and YugabyteDB active-active." />
+  <LinkCard title="Migration Approaches" href="/docs/migration/" description="Move from Auth0/Cognito/Ping and keep your auth URL." />
+  <LinkCard title="Rolling Upgrades & Patching" href="/docs/upgrades/" description="Zero-downtime deploys, gated DB migrations, patch cadence." />
+  <LinkCard title="Realm Setup & Configuration" href="/docs/realms/" description="Isolation tiers, IdPs, MFA, custom domains, AI-config." />
+  <LinkCard title="Reporting & Analytics" href="/docs/analytics/" description="Event pipeline, dashboards, audit exports, metering." />
+  <LinkCard title="Advanced Security" href="/docs/security/" description="Adaptive auth, brute-force defense, STS broker, key rotation." />
+  <LinkCard title="Roadmap" href="/docs/roadmap/" description="What ships when — phased and honest." />
+</CardGrid>
+
+## Principles
+
+- **Sell what we run.** Availability is tiered by architecture (99.9% / 99.95% / 99.99%), backed after production maturity — not four-nines on day one.
+- **No lock-in.** 100% open-source Keycloak core, standard APIs, exportable data.
+- **Cost honesty.** ~60% cheaper than Auth0 at scale, from a low, mostly-fixed cost base.

@@ -1,0 +1,54 @@
+---
+title: Roadmap
+description: What ships when — a phased, honest roadmap from single-region managed Keycloak to multi-region, multi-cloud, and active-active, alongside the AI, analytics, and compliance tracks.
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+We ship what we can operate and sell what we run. The roadmap is deliberately phased so each
+availability and multi-cloud claim is backed by production maturity before it's offered.
+
+<Aside type="note">
+Phases are sequenced by dependency, not fixed dates. Availability tiers become contractual only
+after they're measured in production.
+</Aside>
+
+## Platform phases
+
+**Phase 1 — Single-region managed Keycloak** <Badge text="Foundation" variant="success" />
+- Fargate JVM data plane, serverless control plane, Aurora Multi-AZ, cells + placement.
+- Automated backups and failover within a region. Target **99.9%**.
+
+**Phase 2 — Analytics & AI config** <Badge text="Differentiators" variant="note" />
+- Event Listener SPI → ClickHouse dashboards and audit exports ([Analytics](/docs/analytics/)).
+- AI-config console: plain-English changes with dry-run diff ([Realms](/docs/realms/)).
+
+**Phase 3 — Multi-region active-passive** <Badge text="Resiliency" variant="caution" />
+- Aurora Global, DNS failover, tested promotion drills. Target **99.95%** once proven.
+
+**Phase 4 — Multi-cloud (premium)** <Badge text="On demand" variant="default" />
+- Cross-cloud warm standby (Aurora→Azure logical replication) for DR/sovereignty.
+- YugabyteDB active-active for customers who need no failover gap → the **99.99%** tier.
+- Offered when a customer contractually requires it, repriced as a premium — not the default.
+
+## Feature tracks (in parallel)
+
+| Track | Direction |
+|---|---|
+| **Identity depth** | Passkeys everywhere, richer adaptive auth, more IdP/federation connectors |
+| **Migration tooling** | One-click importers for Auth0/Cognito/Ping, JIT federation helpers |
+| **STS / token-broker** | Broader cloud targets, finer-grained scoping |
+| **Compliance** | Formal SOC 2 attestation, then HIPAA — a multi-quarter program, reported honestly |
+| **Operations** | More autonomous upgrades, capacity-aware autoscaling, per-cell economics tuning |
+
+## What we deliberately are *not* claiming yet
+
+<Aside type="caution">
+- No blanket **99.99%** on day one — four-nines is earned on the active-active tier after
+  production maturity.
+- No **active-active across three clouds** as a default — it's a premium option, and the honest
+  default is single-cloud multi-region active-passive.
+- **Compliance** is described as audited vs in-progress, never as a blanket "compliant" badge.
+</Aside>
+
+Have a requirement that isn't here yet? It's probably a premium tier we can scope — talk to us.

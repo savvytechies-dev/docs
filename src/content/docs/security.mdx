@@ -1,0 +1,63 @@
+---
+title: Advanced Security
+description: Adaptive and step-up authentication, brute-force and anomaly defense, the STS token-broker, edge protection, secrets and key rotation, tenant isolation, and an honest compliance posture.
+---
+
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+Security spans the login flow, the platform edge, and the data layer. This chapter covers the
+controls beyond basic [realm setup](/docs/realms/).
+
+## Authentication hardening
+
+<CardGrid>
+  <Card title="MFA & passkeys" icon="seti:lock">TOTP/OTP and WebAuthn/passkeys; enforce per realm, per role, or per client.</Card>
+  <Card title="Step-up authentication" icon="approve-check">Require stronger auth for sensitive operations via ACR/LoA — not just at login.</Card>
+  <Card title="Adaptive auth" icon="random">Conditional authenticators react to risk signals (new device, geo, IP reputation) to challenge or block.</Card>
+  <Card title="Brute-force defense" icon="warning">Login-failure lockouts with per-user counters; credential-stuffing patterns surfaced in analytics.</Card>
+</CardGrid>
+
+## STS token-broker
+
+The **STS token-broker** exchanges a Keycloak-issued token for short-lived **cloud credentials**
+(`AssumeRoleWithWebIdentity`), so applications and workloads get scoped, expiring access to AWS
+(and other) resources without long-lived keys. It's implemented as a control-plane service over
+the Admin/OIDC surfaces — the Cognito Identity Pools equivalent, on open Keycloak.
+
+## Edge & network protection
+
+- **CloudFront + WAF/Shield** in front of every cell — TLS termination, managed rule sets, rate
+  limiting, and DDoS protection at the edge.
+- **Private data tier** — Aurora and caches are not publicly reachable; access is via the app
+  tier inside the VPC.
+- **Tenant isolation** — pooled tenants get realm-level isolation (own keys, users, clients);
+  regulated tenants get a [dedicated silo](/docs/architecture/#three-isolation-tiers-used-together)
+  (own Keycloak + DB) for the strongest boundary.
+
+## Secrets, keys & rotation
+
+<CardGrid>
+  <Card title="Secrets management" icon="seti:config">Credentials and connection strings in a managed secrets store (KMS-encrypted), never in images or env files.</Card>
+  <Card title="Realm signing keys" icon="seti:lock">Per-realm keys with rotation; old keys stay valid through their grace window so tokens don't break mid-rotation.</Card>
+  <Card title="Encryption" icon="approve-check">TLS in transit; KMS encryption at rest for the database, backups, and event store.</Card>
+</CardGrid>
+
+## Auditability
+
+Every admin change and auth event flows through the [analytics pipeline](/docs/analytics/) into
+an immutable event history — the basis for access reviews and audit evidence.
+
+## Compliance posture (honest)
+
+<Aside type="caution" title="Compliance is a process, not a checkbox">
+SOC 2 / HIPAA / GDPR readiness is a program — controls, evidence, and third-party audit over
+months — not a feature you toggle. We build **SOC 2- and HIPAA-ready controls** (encryption,
+audit logging, access control, data residency/region pinning, retention) and pursue formal
+attestation on a roadmap timeline. We describe what's **audited** vs **in progress** rather than
+claiming blanket "compliant." See the [Roadmap](/docs/roadmap/).
+</Aside>
+
+## Data residency
+
+Region pinning keeps a tenant's data in a chosen region to meet residency requirements; the
+cross-cloud [standby option](/docs/multi-cloud/) extends this to a second cloud for sovereignty.

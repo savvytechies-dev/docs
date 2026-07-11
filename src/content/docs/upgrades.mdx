@@ -1,0 +1,71 @@
+---
+title: Rolling Upgrades & Patching
+description: How managed Keycloak upgrades happen with zero downtime — rolling Fargate deploys, gated database migrations, blue/green for major versions, and a defined security-patch cadence.
+---
+
+import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+Keeping Keycloak current is one of the hardest parts of self-hosting — and one of the biggest
+reasons to be managed. We handle it with zero-downtime rolling deploys and a **gated** database
+migration step.
+
+## Why upgrades are safe here
+
+<CardGrid>
+  <Card title="Sessions survive restarts" icon="approve-check">
+    `persistent-user-sessions` (KC 26) keeps sessions in Aurora, so restarting or replacing a
+    task doesn't drop logged-in users — Infinispan is just a near-cache.
+  </Card>
+  <Card title="Stateless tokens" icon="seti:lock">
+    Access tokens are validated in your app, so rolling tasks never invalidate issued tokens.
+  </Card>
+  <Card title="Clustered across AZs" icon="random">
+    Tasks are drained and replaced a few at a time behind the ALB — capacity never drops to zero.
+  </Card>
+</CardGrid>
+
+## Minor version / patch — rolling deploy
+
+<Steps>
+1. Pull the new Keycloak image (pinned, digest-addressed) into the cell's task definition.
+2. ALB connection draining on the old tasks; new tasks start and pass health checks.
+3. Replace tasks **N at a time** across AZs, watching login success + p95 latency.
+4. Auto-roll-back on health-check or error-rate regression.
+</Steps>
+
+## Database migrations — always gated
+
+<Aside type="danger" title="Never let Keycloak auto-migrate in production">
+Keycloak's startup can auto-apply Liquibase migrations. Those are **DDL-heavy and
+non-transactional** — a mid-migration failure can leave a partially-migrated schema. On
+distributed SQL (YugabyteDB) some DDL is unsupported/slow (startup ~138s vs ~35s on Postgres).
+So we **disable auto-migration** and run a **single, gated migration-runner job** with CI
+validation per Keycloak version before any task rolls.
+</Aside>
+
+<Steps>
+1. **Validate** the target version's migration against a copy of the schema in CI (Postgres and, for multi-cloud cells, YugabyteDB).
+2. **Snapshot** the database (point-in-time restore available).
+3. **Run** the one migration-runner job to completion (tasks stay on the old version).
+4. **Roll** the Fargate tasks onto the new version once the schema is ready.
+5. On failure, restore from snapshot — no half-migrated state in production.
+</Steps>
+
+## Major versions — blue/green
+
+For breaking upgrades we stand up a **parallel (green) cell** on the new version, replay
+config, validate, and shift traffic via the registry/DNS — with instant rollback by shifting
+back. Dedicated/silo tenants can be scheduled individually.
+
+## Patch cadence
+
+<CardGrid>
+  <Card title="Security patches" icon="warning">Applied on an expedited track when Keycloak or base-image CVEs warrant it.</Card>
+  <Card title="Regular upgrades" icon="seti:clock">Minor versions on a rolling cadence after CI validation; you don't schedule them.</Card>
+  <Card title="Version pinning" icon="seti:config">Images are digest-pinned; enterprise/silo tenants can pin a version and upgrade on a coordinated window.</Card>
+</CardGrid>
+
+<Aside type="tip">
+Because migrations are gated and sessions persist, a Keycloak upgrade is a non-event for your
+users — no forced logout, no maintenance page. That's the managed-upgrade promise.
+</Aside>

@@ -1,0 +1,84 @@
+---
+title: Migration Approaches
+description: Move to managed Keycloak from Auth0, Cognito, or Ping — keep your auth URL, migrate users without password resets, and choose a cutover strategy that fits your downtime tolerance.
+---
+
+import { Aside, Card, CardGrid, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Migrating an identity provider touches every app that authenticates against it, so the goals
+are: **keep the auth URL**, **don't force password resets**, and **control the cutover**.
+
+## Concept bridge — Auth0 / Cognito / Ping → Keycloak
+
+| You have | Keycloak equivalent |
+|---|---|
+| Tenant / User Pool / Auth0 tenant | **Realm** |
+| Application / App Client | **Client** |
+| Connection / Identity Provider | **Identity Provider** (OIDC/SAML) |
+| Rule / Action / Trigger / Hook | **Authenticator SPI / event listener** |
+| Hosted login page | **Realm themes** (FreeMarker) |
+| Custom claims / mappers | **Protocol & client scope mappers** |
+
+## Keep your auth URL (issuer continuity)
+
+Breaking the issuer URL invalidates live tokens and app config. We preserve it three ways:
+
+<CardGrid>
+  <Card title="Per-realm Frontend URL" icon="setting">A realm advertises `https://auth.customer.com/realms/prod` no matter which cell hosts it (`frontendUrl` override).</Card>
+  <Card title="Hostname routing" icon="random">Point `CNAME auth.customer.com → our edge`; the router maps host → tenant → cell.</Card>
+  <Card title="TLS per domain" icon="approve-check">ACM + SNI (DNS-validated) or automated Let's Encrypt at the edge.</Card>
+</CardGrid>
+
+<Aside type="note" title="How transparent the cutover is, by source">
+- **Self-hosted Keycloak on a custom domain** → fully transparent: import the realm *including
+  signing keys* and even existing tokens stay valid (no forced logout).
+- **Any IdP on its own domain** → keep the domain; the path becomes `/realms/{realm}`.
+- **Auth0/Cognito default domains** → the default-domain path can't be reproduced, so migrate
+  onto a customer-controlled custom domain instead.
+</Aside>
+
+## User migration — no password resets
+
+Realm import carries **hashed credentials**, so users keep their passwords. What you can't
+carry across vendors are **private signing keys** — so after a cross-vendor cutover users
+**re-authenticate once** (no password reset, just a fresh login). Options:
+
+<Tabs>
+  <TabItem label="Bulk import">
+    Export users + hashed credentials from the source and import via the Admin API / realm
+    import. Best when the source exposes password hashes in a supported format.
+  </TabItem>
+  <TabItem label="Just-in-time (lazy)">
+    Stand up the source as a federated IdP or use a custom `UserStorageProvider`; users migrate
+    on first login. Zero big-bang risk; good for very large or slow-to-drain user bases.
+  </TabItem>
+  <TabItem label="Hybrid">
+    Bulk-import the active core, JIT-migrate the long tail, then decommission the source.
+  </TabItem>
+</Tabs>
+
+## Migrating the database (if you self-hosted Keycloak)
+
+Moving an existing Postgres-backed Keycloak into the platform uses standard Postgres tooling:
+
+- **Logical replication** (publication/subscription) or **AWS DMS** for continuous sync with
+  minimal downtime. (Physical/streaming replication isn't available *into* Aurora from
+  arbitrary sources; use logical.) See [Multi-Cloud](/docs/multi-cloud/) for the same
+  mechanism cross-cloud.
+- Cut over when replication lag is ~0.
+
+## Cutover strategies
+
+<Steps>
+1. **Stand up** the target realm(s) and configure IdPs, clients, mappers, themes.
+2. **Seed** users (bulk import) or wire JIT migration.
+3. **Dual-run / validate** — point a canary app or a fraction of traffic at the new issuer.
+4. **Flip** the DNS/issuer (registry change) during a low-traffic window.
+5. **Watch** login success rate, latency, and error dashboards ([Analytics](/docs/analytics/)); roll back by flipping DNS if needed.
+</Steps>
+
+<Aside type="tip" title="Downtime vs continuous sync">
+- **Big-bang** (short maintenance window): simplest, small controlled downtime.
+- **Continuous sync + JIT**: near-zero downtime, more moving parts.
+Pick per your SLA and user-base size; the platform supports both.
+</Aside>

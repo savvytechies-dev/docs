@@ -1,0 +1,96 @@
+---
+title: Multi-Cloud
+description: Two premium options for spanning clouds — a cross-cloud warm standby via PostgreSQL logical replication (Aurora→Azure), and YugabyteDB active-active — with honest tradeoffs.
+---
+
+import { Aside, Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+import MultiCloudStandby from '../../components/MultiCloudStandby';
+
+Multi-cloud is a **premium opt-in**, not the default. Standard deployments stay single-cloud,
+multi-region ([see HA](/docs/ha/)). When a customer contractually needs cross-cloud DR, data
+sovereignty, or no-cloud-lock-in, there are two options.
+
+<MultiCloudStandby client:visible />
+
+## Option A — Cross-cloud warm standby (active-passive)
+
+Replicate the Aurora primary in AWS to an **Azure Database for PostgreSQL** standby using
+**PostgreSQL logical replication**, with DNS health-check failover.
+
+<Aside type="caution" title="Native log shipping is impossible on Aurora">
+Aurora uses a proprietary, log-structured distributed storage engine and **does not expose
+physical WAL**, so you cannot set up a physical/streaming standby to another provider. The
+supported mechanisms are **logical replication** (publication/subscription) or **AWS DMS** for
+ongoing change data capture.
+</Aside>
+
+<Tabs>
+  <TabItem label="On the AWS primary">
+    - Set `rds.logical_replication = 1` in the Aurora cluster parameter group; reboot the writer.
+    - Create a replication role and a `PUBLICATION FOR ALL TABLES`.
+    - Allow inbound Postgres (5432) from the Azure endpoint over the private link.
+  </TabItem>
+  <TabItem label="On the Azure standby">
+    - Pre-create the identical schema (`pg_dump --schema-only` from Aurora → restore on Azure).
+    - Create a `SUBSCRIPTION` pointing at the AWS publication.
+    - Monitor replication lag; the standby stays warm and read-consistent.
+  </TabItem>
+  <TabItem label="Networking & failover">
+    - Cross-cloud link over VPN/interconnect with non-overlapping CIDRs.
+    - Route 53 latency routing + health checks (60s TTL) to fail traffic to Azure.
+    - Promotion: stop the subscription, promote Azure to primary, repoint Keycloak.
+  </TabItem>
+</Tabs>
+
+<Aside type="note" title="Honest RTO/RPO">
+This is **active-passive**. **RPO** = replication lag (seconds, workload-dependent). **RTO** =
+standby promotion + replication catch-up + DNS re-route — not the 60s TTL alone. Best fit for
+**DR and data residency**, not zero-downtime.
+</Aside>
+
+<Aside type="tip" title="VPN doesn't cut egress">
+Cross-cloud egress is billed on bytes leaving the network regardless of transport, so a VPN
+doesn't reduce it (and adds gateway + encapsulation overhead). A dedicated interconnect lowers
+the per-GB rate but only pays off above ~7 TB/mo cross-cloud. The real lever is architectural:
+keep replication delta-based and writes region-local.
+</Aside>
+
+## Option B — YugabyteDB active-active
+
+Swap Aurora for **YugabyteDB** (distributed SQL, Raft consensus, PostgreSQL-compatible YSQL).
+One logical cluster spans clouds, so **the database becomes the multi-region consistency
+layer** and cross-site cache replication isn't needed. This is genuine **active-active** with
+**no failover gap** — the tier that credibly backs **99.99%**.
+
+- **Config tables** → globally replicated, follower reads (local ~2ms).
+- **Session tables** → row-level geo-partitioned per region (leader-local writes).
+- **`authenticationSessions`** → region-local Infinispan, not replicated.
+
+<Aside type="caution" title="Tradeoffs — this is why it's premium, not default">
+- **Not officially supported by Keycloak.** Runtime SQL mostly works, but Keycloak's
+  auto-applied, non-transactional, DDL-heavy **startup migration** is the risk (unsupported
+  online DDL, sequence differences). Mitigation: disable auto-migration, run a **gated
+  migration-runner** with CI validation per KC version. Startup is ~138s vs ~35s on Postgres.
+  See [Upgrades & Patching](/docs/upgrades/).
+- **Cross-cloud egress cost** dominates the bill.
+- **Heavier ops** — operating distributed SQL is a real commitment.
+</Aside>
+
+## Choosing
+
+<CardGrid>
+  <Card title="Pick Option A (standby) when…" icon="seti:clock">
+    You need cross-cloud DR or data sovereignty, tolerate seconds of RPO and a promotion
+    window, and want to stay on managed Postgres.
+  </Card>
+  <Card title="Pick Option B (Yugabyte) when…" icon="rocket">
+    You need true active-active with no failover gap (99.99%), and accept the migration
+    gating, egress cost, and operational weight.
+  </Card>
+</CardGrid>
+
+Both are wired into the [cell model](/docs/architecture/#cell-based-multi-tenancy): a
+multi-cloud tenant is placed on a cell tagged `capabilities: ["multi-cloud"]`.
+
+> **Rule of thumb:** Aurora Global by default; reach for a cross-cloud standby or YugabyteDB
+> only when a customer needs multi-cloud, no-lock-in, or sovereignty — repriced as a premium.

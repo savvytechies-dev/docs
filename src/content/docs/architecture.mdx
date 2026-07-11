@@ -1,0 +1,94 @@
+---
+title: Architecture
+description: How the SavvyTechies managed Keycloak platform is built — Fargate data plane, serverless control plane, cell-based multi-tenancy, and an Aurora PostgreSQL source of truth.
+---
+
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+import DefaultArchitecture from '../../components/DefaultArchitecture';
+import CellsArchitecture from '../../components/CellsArchitecture';
+
+The platform splits cleanly into a **data plane** (Keycloak itself) and a **control plane**
+(everything around it), with tenants packed into **cells** and an **Aurora PostgreSQL**
+source of truth.
+
+<DefaultArchitecture client:visible />
+
+## Data plane — Fargate, JVM Keycloak
+
+Keycloak runs as **long-running containers on AWS Fargate** in **JVM mode** (Quarkus),
+clustered across Availability Zones via **JDBC_PING**, fronted by **CloudFront** (TLS,
+WAF/Shield, edge cache for `/resources/*`) and a regional **ALB**. Tasks autoscale on CPU.
+
+<Aside type="note" title="Why not Lambda or GraalVM native?">
+Keycloak is **stateful and clustered** — Infinispan caches, DB connection pools, JGroups
+membership, background jobs. Lambda's ephemeral model breaks all of it, and cold-boot is
+35s+ (well beyond a request). **Native** images have no supported Keycloak build and drop
+SPI support — and our differentiators (analytics event listener, adaptive authenticators,
+STS broker) *are* SPIs. Quarkus on Fargate gives fast JVM startup and dense, responsive
+autoscaling; that's the real win, not serverless-for-everything.
+</Aside>
+
+## Control plane — serverless
+
+Everything around Keycloak runs on **Lambda** and drives Keycloak through its **Admin REST
+API** (never by touching the ~90-table schema directly):
+
+<CardGrid>
+  <Card title="Provisioning & Placement" icon="setting">Tenant Registry + Placement Engine decide where a tenant lives and create its realm.</Card>
+  <Card title="Billing & metering" icon="seti:license">Usage (MAU) → Stripe. See [Reporting & Analytics](/docs/analytics/).</Card>
+  <Card title="AI-config service" icon="sparkle">Plain-English changes → Admin REST with a dry-run diff. See [Realm Setup](/docs/realms/).</Card>
+  <Card title="Analytics pipeline" icon="approve-check">Event Listener SPI → queue → ClickHouse.</Card>
+  <Card title="Notifications" icon="email">Email/SMS via SES/SNS.</Card>
+  <Card title="STS token-broker" icon="key">Exchange Keycloak tokens for cloud credentials. See [Advanced Security](/docs/security/).</Card>
+</CardGrid>
+
+## Cell-based multi-tenancy
+
+A **cell** is a self-contained Keycloak unit — a **Fargate cluster + its database + its
+cache** in a region — bounded to a set number of realms. You scale by **adding cells**, and a
+**placement engine** routes each tenant to one (by plan, region/residency, and required
+capabilities such as `multi-cloud`).
+
+<CellsArchitecture client:visible />
+
+### Three isolation tiers (used together)
+
+| Tier | What it is | Density | Isolation | Use for |
+|---|---|---|---|---|
+| Organizations | Org inside a shared realm | Highest | Lowest | Many small B2B tenants |
+| Realm-per-tenant (pooled) | A realm on a shared cluster | Medium | Strong (own keys/users/flows) | The standard tier |
+| Instance-per-tenant (silo) | Dedicated Keycloak + DB | Lowest | Strongest | Enterprise / regulated |
+
+<Aside type="caution" title="Realm density is a measured ceiling, not a constant">
+Keycloak loads each realm's keys/config/caches, so a cluster has a practical realm ceiling
+(KC 26 handles 1k+ realms, with real deployments at 3000+ on ~10 nodes). Adding/mutating a
+realm briefly disturbs the cache. We treat **~1–3k realms/cell** as a starting hypothesis to
+be measured per workload, not a guarantee.
+</Aside>
+
+## Source of truth — Aurora PostgreSQL
+
+Aurora PostgreSQL **Multi-AZ** (primary + synchronous replica) is the source of truth for
+realms, clients, users, credentials, and — with **persistent-user-sessions** (KC 26 default)
+— sessions. **Infinispan** is an in-region near-cache in front of it, not the system of
+record, so a cache wipe or node loss doesn't lose sessions. Only the database (plus tiny
+cache-invalidation signals) ever crosses regions. See [High Availability](/docs/ha/).
+
+## How it scales — two independent axes
+
+<CardGrid>
+  <Card title="Many tenants → more cells" icon="puzzle">
+    Horizontal scale for tenant **count**: add cells as realm counts approach the measured per-cell ceiling.
+  </Card>
+  <Card title="One huge realm → dedicated Fargate" icon="rocket">
+    A single large realm (e.g. 1M users) gets its own Fargate service sized by **login rate**
+    (~1 vCPU per 15 logins/sec — password hashing is the CPU cost), **not** by user count.
+    1M stored users is trivial; active load drives sizing.
+  </Card>
+</CardGrid>
+
+<Aside type="tip">
+Because sizing tracks logins, the biggest cost levers are **passkeys/social login** (remove
+password hashing entirely), longer access-token lifetimes (fewer refreshes), and a connection
+pooler (RDS Proxy / PgBouncer) in front of Aurora.
+</Aside>

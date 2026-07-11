@@ -1,0 +1,69 @@
+---
+title: Realm Setup & Configuration
+description: Choosing an isolation tier, configuring identity providers, MFA, and custom domains, and using the AI-config console to change realms in plain English.
+---
+
+import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+A **realm** is a tenant's isolated identity space — its own users, clients, roles, identity
+providers, keys, and login flows. This chapter covers how to set one up and configure it.
+
+## Pick an isolation tier
+
+See [Architecture](/docs/architecture/#three-isolation-tiers-used-together) for the full model.
+In short:
+
+| Tier | Choose when |
+|---|---|
+| **Organizations** (shared realm) | Many small B2B customers, highest density, lightest isolation |
+| **Realm-per-tenant** (pooled) | The default — strong isolation with own keys/users/flows |
+| **Dedicated silo** (own KC + DB) | Enterprise / regulated / "give me my own instance" |
+
+The placement engine assigns the tier from your plan; you can request a dedicated silo or
+region pinning for residency.
+
+## Identity providers (SSO)
+
+Keycloak brokers external IdPs and federates directories:
+
+<CardGrid>
+  <Card title="OIDC / SAML" icon="seti:default">Google, Microsoft Entra ID, Okta, Ping, or any standard OIDC/SAML provider as a login option.</Card>
+  <Card title="Social login" icon="approve-check">Google/GitHub/etc. — and a lever to remove password hashing cost.</Card>
+  <Card title="LDAP / AD federation" icon="seti:db">Federate an existing directory as a user source.</Card>
+</CardGrid>
+
+## Authentication & MFA
+
+- **MFA:** TOTP/OTP, WebAuthn/**passkeys**, and step-up authentication for sensitive actions.
+- **Brute-force protection:** login-failure lockouts (counters live in Infinispan).
+- **Custom flows:** conditional and scripted authenticators via the Authenticator SPI.
+- See [Advanced Security](/docs/security/) for adaptive auth and anomaly detection.
+
+## Custom domains
+
+Put the realm on the customer's own domain and keep issuer continuity:
+
+<Steps>
+1. Customer sets `CNAME auth.customer.com → our edge`.
+2. We map the host → tenant → cell and set the realm's `frontendUrl`.
+3. TLS via ACM + SNI (DNS-validated). Tokens advertise the customer domain as issuer.
+</Steps>
+
+See [Migration](/docs/migration/#keep-your-auth-url-issuer-continuity) for the full mechanism.
+
+## AI-config console
+
+Configure realms in **plain English** instead of clicking through the admin console:
+
+<Aside type="tip" title="How it works">
+The AI-config service translates a request like *"turn on Google SSO and require MFA for
+admins"* into **Admin REST API** calls, shows a **dry-run diff** of exactly what will change,
+and applies it only on your confirmation. It's an accelerator over the standard API — every
+change is a normal, auditable Admin API operation.
+</Aside>
+
+## Hardened defaults
+
+New realms ship with sensible, secure defaults: strong password/OTP policy, brute-force
+protection on, short-lived access tokens with refresh, PKCE required for public clients, and
+audit event logging enabled ([Analytics](/docs/analytics/)). You can tune any of it per realm.

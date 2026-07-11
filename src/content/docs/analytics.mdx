@@ -1,0 +1,56 @@
+---
+title: Reporting & Analytics
+description: The event pipeline behind login and security analytics, audit-ready exports, BI integrations, and usage metering — the insight Auth0 charges extra for, included.
+---
+
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+Identity is a goldmine of security and product signal. Keycloak emits rich events; we capture,
+store, and surface them — the analytics layer is a first-class part of the platform, not a
+bolt-on.
+
+## The pipeline
+
+```
+Keycloak (Event Listener SPI) ──▶ durable queue ──▶ ClickHouse ──▶ dashboards / exports / metering
+```
+
+- **Event Listener SPI** — Keycloak's native extension point emits **user events** (login,
+  logout, register, MFA, failures, token refresh) and **admin events** (config changes) with
+  no polling.
+- **Durable queue** — decouples Keycloak from analytics so a spike or outage never backs up
+  the auth hot path.
+- **ClickHouse** — a columnar store built for high-cardinality event analytics at scale.
+
+<Aside type="note">
+This is the same first-party, cookieless approach we use for our own site analytics: capture
+events at the source, enrich server-side, aggregate on a schedule. Your tenant's data stays in
+your tenant.
+</Aside>
+
+## What you get
+
+<CardGrid>
+  <Card title="Login & usage dashboards" icon="approve-check">Logins, unique users, success/failure rates, MFA adoption, IdP mix, geography, and trends over time.</Card>
+  <Card title="Security analytics" icon="warning">Brute-force and credential-stuffing patterns, impossible-travel and anomaly signals, admin-change audit trails.</Card>
+  <Card title="Audit-ready exports" icon="document">Immutable event history for SOC 2 / access reviews — the reports Auth0 charges $20K+/yr for, included.</Card>
+  <Card title="BI exports" icon="seti:db">Stream or export to Snowflake / BigQuery to join identity data with the rest of your warehouse.</Card>
+</CardGrid>
+
+## Usage metering & billing
+
+The same event stream powers **metering**. We count **Monthly Active Users** — a unique user
+who authenticates at least once in a calendar month; token refreshes and introspections don't
+add MAUs — and feed it to billing (Stripe).
+
+<Aside type="tip" title="Billing unit">
+MAU is the industry-standard, predictable unit (same as Auth0/Cognito/Okta), and our low,
+mostly-fixed cost base means engagement swings don't threaten your bill. Machine-to-machine
+(client-credentials) token traffic is metered separately, since it doesn't map to a human user.
+</Aside>
+
+## Retention & privacy
+
+- Event retention is configurable per plan; raw events age out on a lifecycle policy.
+- Analytics run on **your tenant's** data; no cross-tenant mixing.
+- IP handling follows your compliance posture (full, anonymized, or geo-only).
