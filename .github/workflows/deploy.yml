@@ -40,11 +40,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # npm install (not ci) — the lockfile omits Linux-only sharp native deps when
+        # generated on macOS, which npm ci rejects. install resolves them per-platform.
+        run: npm install
 
       - name: Build
         run: npm run build
