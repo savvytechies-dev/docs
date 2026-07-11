@@ -1,0 +1,83 @@
+name: Deploy docs (S3 + CloudFront /docs)
+
+# Builds the Starlight docs and deploys them under the /docs/ key of the docs S3
+# bucket, then invalidates /docs/* on the shared CloudFront distribution.
+# Served at https://www.savvytechies.com/docs (subdirectory, for SEO).
+# Auth = GitHub OIDC -> assume an AWS IAM role (no long-lived keys).
+#
+# Required GitHub config (Settings -> Secrets and variables -> Actions):
+#   secret  AWS_ROLE_ARN                 IAM role to assume (OIDC). REQUIRED.
+#   var     AWS_REGION                   defaults to us-east-1
+#   var     DOCS_BUCKET                  defaults to savvytechies-docs
+#   var     CLOUDFRONT_DISTRIBUTION_ID   defaults to E3OEC4DI1YRJ40
+#
+# Provision the bucket + IAM role with the Terraform in ./terraform (see DEPLOYMENT.md).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      DOCS_BUCKET: ${{ vars.DOCS_BUCKET || 'savvytechies-docs' }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID || 'E3OEC4DI1YRJ40' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3 (under /docs)
+        run: |
+          set -euo pipefail
+          # Site is built with base:/docs and output at dist root; publish it under the
+          # bucket's docs/ key so CloudFront /docs/* -> website endpoint resolves index.html.
+          # 1) Fingerprinted assets: long, immutable cache.
+          aws s3 sync dist/ "s3://${DOCS_BUCKET}/docs" \
+            --delete --exclude "*" --include "_astro/*" \
+            --cache-control "public,max-age=31536000,immutable"
+          # 2) Everything else (HTML, search index, sitemap): short cache.
+          aws s3 sync dist/ "s3://${DOCS_BUCKET}/docs" \
+            --delete --exclude "_astro/*" \
+            --cache-control "public,max-age=0,must-revalidate"
+
+      - name: Invalidate CloudFront
+        run: |
+          set -euo pipefail
+          ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths "/docs/*" --query 'Invalidation.Id' --output text)
+          echo "Invalidation created: $ID"
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${CLOUDFRONT_DISTRIBUTION_ID}" --id "$ID"
+
+      - name: Summary
+        run: echo "Deployed docs to https://www.savvytechies.com/docs (bucket ${DOCS_BUCKET}/docs, dist ${CLOUDFRONT_DISTRIBUTION_ID})" >> "$GITHUB_STEP_SUMMARY"

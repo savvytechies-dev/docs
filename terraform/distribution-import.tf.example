@@ -1,0 +1,36 @@
+# Adopt the shared CloudFront distribution into Terraform so the /docs/* behavior can be
+# managed as code. Rename to distribution-import.tf, then:
+#   terraform plan -generate-config-out=distribution.generated.tf
+# to have Terraform author the current config for you. Add the docs origin + /docs/* behavior
+# to the generated file (see DEPLOYMENT.md step 3), then plan/apply. This also brings the site
+# and analytics origins under IaC (pays down the "why not IaC" item).
+#
+# Requires Terraform >= 1.5 (import blocks + -generate-config-out).
+
+import {
+  to = aws_cloudfront_distribution.shared
+  id = "E3OEC4DI1YRJ40"
+}
+
+# Docs origin + behavior to add to the generated distribution resource:
+#
+#   origin {
+#     origin_id   = "docs"
+#     domain_name = aws_s3_bucket_website_configuration.docs.website_endpoint
+#     custom_origin_config {
+#       http_port              = 80
+#       https_port             = 443
+#       origin_protocol_policy = "http-only"          # S3 website endpoints are HTTP-only
+#       origin_ssl_protocols   = ["TLSv1.2"]
+#     }
+#   }
+#
+#   ordered_cache_behavior {
+#     path_pattern           = "/docs/*"
+#     target_origin_id       = "docs"
+#     viewer_protocol_policy = "redirect-to-https"
+#     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+#     cached_methods         = ["GET", "HEAD"]
+#     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # Managed-CachingOptimized
+#     compress               = true
+#   }
