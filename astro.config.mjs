@@ -10,7 +10,7 @@ export default defineConfig({
   base: '/docs',
   integrations: [
     starlight({
-      title: 'SavvyTechies Docs',
+      title: 'SavvyTechies Keycloak SaaS Docs',
       description:
         'How SavvyTechies runs managed Keycloak: architecture, HA, multi-cloud, migration, upgrades, realms, analytics, and security.',
       customCss: ['./src/styles/custom.css'],
