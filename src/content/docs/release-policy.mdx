@@ -1,6 +1,6 @@
 ---
 title: Release & Deployment Policy
-description: The lifecycle, testing, and deployment cadence for the managed Keycloak engine — a 15-day soak strategy, quarterly patch and annual major cadences, a CVSS-based emergency hotfix protocol, zero-downtime rolling deploys, automated rollback, and SOC 2 change-management evidence.
+description: The lifecycle, testing, and deployment cadence for the managed Keycloak engine — a 15-day soak strategy, quarterly patch and annual major cadences, a CVSS-based emergency hotfix protocol, zero-downtime rolling deploys, automated rollback, and change-management evidence.
 ---
 
 import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
@@ -12,9 +12,9 @@ customer disruption. It complements the mechanics described in [Rolling Upgrades
 
 ## Executive summary
 
-Our goals are to maintain strong change-management and vulnerability-management discipline
-(aligned to SOC 2 Type II trust criteria), minimize platform downtime, and preserve tenant data
-isolation across schemas. Every infrastructure update follows a strict **15-Day Soak Strategy**.
+Our goals are to maintain strong change-management and vulnerability-management discipline,
+minimize platform downtime, and preserve tenant isolation across realms. Every infrastructure
+update follows a strict **15-Day Soak Strategy**.
 
 ## Release & deployment cadence
 
@@ -43,7 +43,7 @@ following checklist in the isolated Staging VPC.
 | Phase | Timeline | Action items & requirements |
 | --- | --- | --- |
 | **1 · Ingestion** | Day 1–2 | Build test container images from the new upstream base tag; deploy to the isolated Staging VPC. |
-| **2 · Tenant isolation** | Day 3–5 | Automated suites verify Keycloak injects the correct custom JWT claims (`tenant_id`, `target_schema`) and that cross-tenant access attempts **fail**. |
+| **2 · Tenant isolation** | Day 3–5 | Automated suites verify realm isolation — each tenant realm issues tokens under its own issuer, and cross-tenant / cross-realm access attempts **fail**. |
 | **3 · Database verification** | Day 6–8 | Dry-run database migrations against a replicated Aurora multi-tenant schema; confirm no tables or indices break. |
 | **4 · Cache & session soak** | Day 9–14 | Simulated high-concurrency traffic verifies Infinispan clustering on Fargate stays stable under load. |
 | **5 · Sign-off** | Day 15 | Review staging logs via the SIEM / central logging interface; authorize production roll-out. |
@@ -92,15 +92,15 @@ When a Critical (CVSS ≥ 9.0) vulnerability is disclosed in Keycloak or its und
 </Steps>
 
 <Aside type="caution" title="Emergency changes are still fully evidenced">
-The accelerated path follows the same SOC 2 evidence requirements below — the emergency change
-ticket records the CVE, its CVSS score, and the compressed test results, so the exception remains
-auditable under CC7.1 / CC8.1.
+The accelerated path follows the same evidence requirements below — the emergency change ticket
+records the CVE, its CVSS score, and the compressed test results, so the exception remains fully
+auditable.
 </Aside>
 
-## SOC 2 audit evidence
+## Change-management evidence
 
-To satisfy the **CC7.1 (Vulnerability Management)** and **CC8.1 (Change Management)** trust
-criteria, the team preserves the following artifacts for every deployment:
+For every deployment the team preserves the following artifacts, giving a complete, auditable
+change trail:
 
 <CardGrid>
   <Card title="Change tickets" icon="document">
