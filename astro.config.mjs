@@ -32,6 +32,7 @@ export default defineConfig({
           items: [
             { label: 'Migration Approaches', slug: 'migration' },
             { label: 'Rolling Upgrades & Patching', slug: 'upgrades' },
+            { label: 'Release & Deployment Policy', slug: 'release-policy' },
             { label: 'Realm Setup & Configuration', slug: 'realms' },
           ],
         },

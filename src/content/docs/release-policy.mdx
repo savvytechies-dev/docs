@@ -1,0 +1,121 @@
+---
+title: Release & Deployment Policy
+description: The lifecycle, testing, and deployment cadence for the managed Keycloak engine — a 15-day soak strategy, quarterly patch and annual major cadences, a CVSS-based emergency hotfix protocol, zero-downtime rolling deploys, automated rollback, and change-management evidence.
+---
+
+import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+This policy defines the lifecycle, tracking, testing, and deployment cadence for our central
+Identity & Access Management engine (Keycloak) running on **AWS Fargate** and **Amazon Aurora**.
+It exists to keep the platform patched and secure while protecting tenant isolation and avoiding
+customer disruption. It complements the mechanics described in [Rolling Upgrades & Patching](/docs/upgrades/).
+
+## Executive summary
+
+Our goals are to maintain strong change-management and vulnerability-management discipline,
+minimize platform downtime, and preserve tenant isolation across realms. Every infrastructure
+update follows a strict **15-Day Soak Strategy**.
+
+## Release & deployment cadence
+
+```
+[ Day 0: Upstream Release ] → [ Day 1–14: Staging Soak & Automated Testing ] → [ Day 15: Production Rolling Upgrade ]
+```
+
+<CardGrid>
+  <Card title="Quarterly maintenance (minor & patch)" icon="seti:clock">
+    **4× per year.** Current minor-stream updates and security hotfixes (e.g. Keycloak 26.x.x
+    patches). Production deployment occurs **exactly 15 days** after the upstream stable container
+    tag is published by the vendor. Objective: remediate CVEs and maintain performance.
+  </Card>
+  <Card title="Annual system overhaul (major)" icon="rocket">
+    **1× per year.** Major-version upgrades involving core API shifts, architectural changes, or
+    database schema refactoring. Production deployment is scheduled **15 days after** the staging
+    validation cycle concludes.
+  </Card>
+</CardGrid>
+
+## The 15-day staging & testing protocol
+
+During the 15-day buffer between upstream release and production, engineering completes the
+following checklist in the isolated Staging VPC.
+
+| Phase | Timeline | Action items & requirements |
+| --- | --- | --- |
+| **1 · Ingestion** | Day 1–2 | Build test container images from the new upstream base tag; deploy to the isolated Staging VPC. |
+| **2 · Tenant isolation** | Day 3–5 | Automated suites verify realm isolation — each tenant realm issues tokens under its own issuer, and cross-tenant / cross-realm access attempts **fail**. |
+| **3 · Database verification** | Day 6–8 | Dry-run database migrations against a replicated Aurora multi-tenant schema; confirm no tables or indices break. |
+| **4 · Cache & session soak** | Day 9–14 | Simulated high-concurrency traffic verifies Infinispan clustering on Fargate stays stable under load. |
+| **5 · Sign-off** | Day 15 | Review staging logs via the SIEM / central logging interface; authorize production roll-out. |
+
+## Production deployment & rollback
+
+To eliminate customer disruption, these technical constraints are enforced during every deployment:
+
+<Steps>
+1. **Zero-downtime rolling deployments** — AWS ECS rolling updates with `minimumHealthyPercent=100`
+   and `maximumPercent=200`. Old Fargate tasks are not terminated until new tasks pass health checks.
+2. **Session preservation** — Keycloak distributed caching (Infinispan) is verified active during
+   the roll so active tenant users are not logged out mid-session.
+3. **Rollback window** — for the first **60 minutes** post-deploy, if any metric (HTTP 5xx rate,
+   database connection spikes) deviates from baseline, CloudWatch alarms trigger an **automated
+   rollback** to the previous container image tag.
+</Steps>
+
+## Security patching & emergency hotfix
+
+Critical security vulnerabilities **bypass the standard 15-day soak**. Remediation is accelerated
+on an SLA driven by the upstream exploit's CVSS v3 severity rating.
+
+### Vulnerability classification matrix
+
+| Severity | CVSS v3 | Target remediation window | Testing requirements |
+| --- | --- | --- | --- |
+| **Critical** | 9.0 – 10.0 | Within **24 hours** of vendor patch | 1–2 hour smoke test in Staging, then immediate production roll-out |
+| **High** | 7.0 – 8.9 | Within **72 hours** of vendor patch | 24-hour Staging testing window before production |
+| **Medium / Low** | 0.1 – 6.9 | Next scheduled cycle | Rolled into the standard quarterly 15-day soak pipeline |
+
+### 24-hour emergency deployment (critical / zero-day)
+
+When a Critical (CVSS ≥ 9.0) vulnerability is disclosed in Keycloak or its underlying base image:
+
+<Steps>
+1. **Emergency Change Request (ECR)** — a designated security or engineering lead opens an
+   emergency change ticket, bypassing the standard sprint-planning cycle.
+2. **Automated base-image rebuild** — the CI/CD pipeline pulls the hotfix image from the official
+   repository, injects our multi-tenant configuration, and deploys it to the Staging VPC.
+3. **Accelerated testing gate** — instead of the 15-day soak, a compressed automated suite of
+   **no more than 2 hours** validates: Aurora connection pooling; JWT cryptographic signing and
+   per-realm issuer verification; and core login + token-refresh.
+4. **Fast-track production release** — on a successful staging pass, Fargate tasks are updated via
+   an immediate rolling deployment.
+</Steps>
+
+<Aside type="caution" title="Emergency changes are still fully evidenced">
+The accelerated path follows the same evidence requirements below — the emergency change ticket
+records the CVE, its CVSS score, and the compressed test results, so the exception remains fully
+auditable.
+</Aside>
+
+## Change-management evidence
+
+For every deployment the team preserves the following artifacts, giving a complete, auditable
+change trail:
+
+<CardGrid>
+  <Card title="Change tickets" icon="document">
+    A tracked change ticket linking the upstream release notes and the specific CVEs addressed.
+  </Card>
+  <Card title="Staging test logs" icon="approve-check">
+    Automated test results proving the 15-day validation period was respected and completed.
+  </Card>
+  <Card title="Deployment logs" icon="seti:shell">
+    Immutable AWS CloudTrail / ECS deployment timestamps confirming the exact production release
+    date and time.
+  </Card>
+</CardGrid>
+
+<Aside type="note" title="Operational specifics">
+Change-ticket tooling (GitHub Issues / Jira / Linear) and deployment-failure alert channels
+(Slack / PagerDuty) are configured per the team's runbook and referenced from each change ticket.
+</Aside>
