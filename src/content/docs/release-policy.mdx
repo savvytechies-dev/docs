@@ -86,7 +86,7 @@ When a Critical (CVSS ≥ 9.0) vulnerability is disclosed in Keycloak or its und
    repository, injects our multi-tenant configuration, and deploys it to the Staging VPC.
 3. **Accelerated testing gate** — instead of the 15-day soak, a compressed automated suite of
    **no more than 2 hours** validates: Aurora connection pooling; JWT cryptographic signing and
-   `tenant_id` verification; and core login + token-refresh.
+   per-realm issuer verification; and core login + token-refresh.
 4. **Fast-track production release** — on a successful staging pass, Fargate tasks are updated via
    an immediate rolling deployment.
 </Steps>
