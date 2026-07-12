@@ -43,10 +43,11 @@ following checklist in the isolated Staging VPC.
 | Phase | Timeline | Action items & requirements |
 | --- | --- | --- |
 | **1 · Ingestion** | Day 1–2 | Build test container images from the new upstream base tag; deploy to the isolated Staging VPC. |
-| **2 · Tenant isolation** | Day 3–5 | Automated suites verify realm isolation — each tenant realm issues tokens under its own issuer, and cross-tenant / cross-realm access attempts **fail**. |
-| **3 · Database verification** | Day 6–8 | Dry-run database migrations against a replicated Aurora multi-tenant schema; confirm no tables or indices break. |
-| **4 · Cache & session soak** | Day 9–14 | Simulated high-concurrency traffic verifies Infinispan clustering on Fargate stays stable under load. |
-| **5 · Sign-off** | Day 15 | Review staging logs via the SIEM / central logging interface; authorize production roll-out. |
+| **2 · Tenant isolation** | Day 3–4 | Automated suites verify realm isolation — each tenant realm issues tokens under its own issuer, and cross-tenant / cross-realm access attempts **fail**. |
+| **3 · Client & adapter compatibility** | Day 5–6 | Regression-test the Keycloak client integrations against the new version: the browser **JavaScript adapter (`keycloak-js`)**, **Node.js OIDC** clients, and common application flows — authorization-code + PKCE login, token refresh, and logout — across representative SPAs and server apps. |
+| **4 · Database verification** | Day 7–8 | Dry-run the Keycloak database migrations against a production-like Aurora replica; confirm no tables or indices break. |
+| **5 · Cache & session soak** | Day 9–14 | Simulated high-concurrency traffic verifies Infinispan clustering on Fargate stays stable under load. |
+| **6 · Sign-off** | Day 15 | Review staging logs via the SIEM / central logging interface; authorize production roll-out. |
 
 ## Production deployment & rollback
 
@@ -55,8 +56,9 @@ To eliminate customer disruption, these technical constraints are enforced durin
 <Steps>
 1. **Zero-downtime rolling deployments** — AWS ECS rolling updates with `minimumHealthyPercent=100`
    and `maximumPercent=200`. Old Fargate tasks are not terminated until new tasks pass health checks.
-2. **Session preservation** — Keycloak distributed caching (Infinispan) is verified active during
-   the roll so active tenant users are not logged out mid-session.
+2. **Session preservation** — user sessions are persisted in Aurora (Keycloak 26
+   `persistent-user-sessions`), so replacing tasks never logs users out; the **replicated**
+   Infinispan cache is verified active during the roll as a near-cache in front of that store.
 3. **Rollback window** — for the first **60 minutes** post-deploy, if any metric (HTTP 5xx rate,
    database connection spikes) deviates from baseline, CloudWatch alarms trigger an **automated
    rollback** to the previous container image tag.

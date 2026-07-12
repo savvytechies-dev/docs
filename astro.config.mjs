@@ -13,6 +13,10 @@ export default defineConfig({
       title: 'SavvyTechies Keycloak SaaS Docs',
       description:
         'How SavvyTechies runs managed Keycloak: architecture, HA, multi-cloud, migration, upgrades, realms, analytics, and security.',
+      components: {
+        // Two-line header: "SavvyTechies" (→ marketing home) over "Keycloak SaaS Docs".
+        SiteTitle: './src/components/SiteTitle.astro',
+      },
       customCss: ['./src/styles/custom.css'],
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/savvytechies-dev' },

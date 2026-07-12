@@ -1,0 +1,36 @@
+---
+// Custom header title: brand on line 1 (links to the marketing home), the docs
+// name on line 2 (links to the docs home). Overrides Starlight's default SiteTitle.
+const docsHome = import.meta.env.BASE_URL;
+---
+
+<span class="st-title">
+  <a href="/" class="st-brand">SavvyTechies</a>
+  <a href={docsHome} class="st-sub">Keycloak SaaS Docs</a>
+</span>
+
+<style>
+  .st-title {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    gap: 1px;
+  }
+  .st-brand {
+    font-weight: 700;
+    font-size: var(--sl-text-lg);
+    color: var(--sl-color-white);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .st-sub {
+    font-weight: 500;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    text-decoration: none;
+  }
+  .st-brand:hover,
+  .st-sub:hover {
+    color: var(--sl-color-text-accent);
+  }
+</style>
