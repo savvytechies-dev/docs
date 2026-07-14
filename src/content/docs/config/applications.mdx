@@ -1,0 +1,64 @@
+---
+title: Applications (clients)
+description: Register OIDC and SAML applications on a SavvyTechies user pool — redirect URIs, PKCE, flows, public vs confidential, and client secrets.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+An **application** (Keycloak *client*) is anything that authenticates users against the pool:
+a web app, SPA, mobile app, API, or a SAML service provider.
+
+## Register an OIDC app
+
+- **Ask the assistant:** *"Register a web app called storefront in acme-prod with redirect URI
+  https://storefront.acme.com/callback."* It stages a dry-run, then applies on confirmation.
+- **Console:** the **Clients** tab lists your apps.
+- **Keycloak:** **Clients → Create client** (protocol OpenID Connect).
+
+### Public vs. confidential
+
+| Type | Use for | Secret |
+|---|---|---|
+| **Public** | SPAs, mobile — can't keep a secret | None; **must use PKCE** |
+| **Confidential** | Server-side web apps, backends | Server-generated client secret |
+
+<Aside type="caution" title="PKCE for public clients">
+A public client using the code flow **without PKCE** is vulnerable to code interception. Set
+Proof Key for Code Exchange to **S256**. The [Analyzer](/docs/config/) flags public clients
+missing PKCE as **high**.
+</Aside>
+
+### Redirect URIs
+
+- Use **exact** URIs. Avoid wildcards (`*`, `/*`) — they enable open-redirect and token theft.
+- The Analyzer flags wildcard redirects (and wildcard CORS web origins).
+
+### Flows
+
+- **Authorization Code + PKCE** — the default and correct choice for almost everything.
+- **Implicit flow** — deprecated; don't enable it.
+- **Direct access grants (ROPC)** — avoid, especially on public clients.
+
+## Register a SAML app
+
+- **Ask the assistant:** *"Register a SAML client for entityID https://sp.acme.com with ACS
+  https://sp.acme.com/saml/acs, NameID username, force POST binding."*
+
+The assistant maps this to a SAML service-provider client with sensible defaults: **sign
+documents on, client signature required, force POST binding, NameID = username**. Override any
+of them in the request. It stages a dry-run before creating the client.
+
+- **Keycloak:** **Clients → Create client** (protocol SAML), then set the Master SAML Processing
+  URL and Assertion Consumer Service (redirect) URLs.
+
+## Client secrets
+
+Confidential clients get a server-generated secret at creation.
+
+- **Reveal & copy:** the **Clients** tab → **Reveal** next to a confidential client, then
+  **Copy**. Secrets are fetched only on demand, never stored in your browser, and never shown in
+  chat. To **rotate** a secret, use the Keycloak admin console.
+
+## Related
+
+- [Single sign-on](/docs/config/sso/) · [Tokens & sessions](/docs/config/tokens-sessions/)

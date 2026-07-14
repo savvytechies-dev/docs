@@ -1,0 +1,50 @@
+---
+title: Login branding
+description: Brand the hosted login pages of a SavvyTechies user pool — colors, logo, corner style, and custom CSS — applied at runtime across sign-in, update-account, and error pages.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Make the hosted login pages look like your product. Branding applies **at runtime** — changes
+are live in seconds, with no restart — and covers **every** login-flow page: sign-in, update
+account information, and error.
+
+## Visual builder
+
+- **Console:** the **Branding** tab. Set primary color, page background, and corner radius for
+  cards/buttons/fields, with a **live preview** you can switch between the Sign-in, Update
+  Account, and Error pages.
+- **Ask the assistant:** *"Make my login page teal with rounded corners"* or *"Set my brand
+  color to #e11d48 and add my logo."*
+
+## Logo
+
+- Upload a PNG/JPG/WebP/SVG under 150 KB, or paste an `https` URL. The logo replaces the header
+  on all login pages.
+
+## Custom CSS (advanced)
+
+Bring your own stylesheet for full control.
+
+- **Console:** Branding tab → **Custom CSS (advanced)** → upload a `.css` file or paste it. It's
+  applied *after* the visual settings, so it overrides them, on every page.
+
+<Aside type="caution" title="Security limits">
+Because custom CSS is served on the page where users type passwords, `@import` and **external
+`url()`** are blocked — embed images as `data:` URIs. This defeats CSS-based data exfiltration.
+A full Keycloak theme-bundle upload is on the [roadmap](/docs/roadmap/).
+</Aside>
+
+## How it works
+
+The pool uses one deployed theme; per-realm branding is layered on via a dynamic, cacheable
+stylesheet the theme links on every page. That's why changes are runtime and need no restart.
+
+## Custom domain
+
+Put the login pages on your own domain (`auth.yourbrand.com`) via the **Domains** tab — see
+[Realm Setup → Custom domains](/docs/realms/#custom-domains).
+
+## Related
+
+- [Registration & email](/docs/config/registration/) · [Realm Setup](/docs/realms/)

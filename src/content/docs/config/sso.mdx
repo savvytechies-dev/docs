@@ -1,0 +1,45 @@
+---
+title: Single sign-on (SSO)
+description: Add external identity providers — Google, Microsoft Entra ID, Okta, generic OIDC/SAML, and LDAP/AD federation — to a SavvyTechies user pool.
+---
+
+import { CardGrid, Card } from '@astrojs/starlight/components';
+
+Let users sign in with an identity they already have. Keycloak brokers external providers
+and federates directories.
+
+<CardGrid>
+  <Card title="Social & OIDC" icon="approve-check">Google, GitHub, Microsoft Entra ID, Okta, Ping, or any standard OpenID Connect provider.</Card>
+  <Card title="SAML 2.0" icon="seti:html">Any SAML identity provider as a login option.</Card>
+  <Card title="LDAP / AD" icon="seti:db">Federate an existing directory as a user source.</Card>
+</CardGrid>
+
+## Add an identity provider
+
+- **Ask the assistant:** *"Add Google login to acme-prod"* or *"Add a SAML identity provider
+  for acme-prod with metadata URL https://idp.example.com/metadata."* The assistant stages the
+  provider and shows a dry-run before applying.
+- **Keycloak:** **Identity providers → Add provider**, then paste the provider's client
+  ID/secret (OIDC) or metadata (SAML).
+
+## What you'll need from the provider
+
+| Protocol | You provide to Keycloak | You give the provider |
+|---|---|---|
+| **OIDC** | Client ID + secret, issuer/discovery URL | Keycloak's redirect URI |
+| **SAML** | IdP metadata (or entityID + SSO URL + cert) | Keycloak's SP metadata / ACS URL |
+
+## Federation vs. brokering
+
+- **Brokering** (OIDC/SAML) — users authenticate at the external IdP; Keycloak issues its own
+  tokens. Best for "log in with Google/Okta."
+- **Federation** (LDAP/AD) — Keycloak reads users from a directory as if they were local.
+
+## Removing password cost
+
+Routing users to social/enterprise SSO removes password hashing and reset overhead — a real
+[cost lever](/docs/analytics/) as well as a security improvement.
+
+## Related
+
+- [Applications](/docs/config/applications/) · [Realm Setup](/docs/realms/)

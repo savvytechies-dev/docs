@@ -1,0 +1,72 @@
+---
+title: Configuring your user pool
+description: A reference to every configurable setting on a SavvyTechies user pool (Keycloak realm) — login & security, passwords, MFA, tokens & sessions, registration, SSO, applications, branding, and audit — with recommended defaults and how to change each one.
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+A **user pool** is a SavvyTechies-managed Keycloak **realm**: an isolated identity
+space with its own users, applications, login flow, and security policy. This section
+is a per-setting reference — what each setting does, the value we recommend, and the
+three ways to change it.
+
+<Aside type="tip" title="Three ways to configure everything">
+Every setting below can be changed in one of three ways:
+
+1. **Ask the assistant** — plain English in the console; it stages a dry-run diff and
+   applies only on your confirmation.
+2. **Console tabs** — Branding, Clients, Domains, and Support have dedicated editors.
+3. **Keycloak admin console** — the full Admin UI is always available for anything not
+   yet surfaced in the console.
+</Aside>
+
+## Settings by type
+
+<CardGrid>
+  <Card title="Login & security" icon="approve-check">
+    TLS enforcement, brute-force protection, browser security headers, remember-me.
+    [Open →](/docs/config/login-security/)
+  </Card>
+  <Card title="Passwords & MFA" icon="seti:lock">
+    Password policy, OTP/TOTP, WebAuthn passkeys, step-up authentication.
+    [Open →](/docs/config/passwords-mfa/)
+  </Card>
+  <Card title="Tokens & sessions" icon="seti:clock">
+    Access-token lifespan, SSO idle/max timeouts, refresh-token rotation.
+    [Open →](/docs/config/tokens-sessions/)
+  </Card>
+  <Card title="Registration & email" icon="seti:default">
+    Self-registration, email verification, forgot-password, login with email.
+    [Open →](/docs/config/registration/)
+  </Card>
+  <Card title="Single sign-on (SSO)" icon="seti:html">
+    External identity providers — Google, Entra ID, Okta, generic OIDC/SAML, LDAP.
+    [Open →](/docs/config/sso/)
+  </Card>
+  <Card title="Applications (clients)" icon="seti:javascript">
+    Register OIDC and SAML apps, redirect URIs, PKCE, flows, client secrets.
+    [Open →](/docs/config/applications/)
+  </Card>
+  <Card title="Login branding" icon="seti:image">
+    Colors, logo, corner style, and custom CSS across all login pages.
+    [Open →](/docs/config/branding/)
+  </Card>
+  <Card title="Events & audit" icon="seti:db">
+    User and admin event logging, retention, and where the data goes.
+    [Open →](/docs/config/events-audit/)
+  </Card>
+</CardGrid>
+
+## Check your configuration
+
+Run the [Keycloak Analyzer](/docs/config/#) against a realm export to get an instant
+security & production-readiness score. It flags exactly the settings on these pages —
+weak password policy, brute-force off, wildcard redirects, long-lived tokens, missing
+audit logging — and nothing is stored.
+
+## Hardened defaults
+
+New user pools ship secure: TLS required, brute-force protection on, a strong password
+policy, short access tokens with refresh-token rotation, PKCE required for public clients,
+email verification on, and audit logging enabled. Every page below tells you the default
+and how to change it.
