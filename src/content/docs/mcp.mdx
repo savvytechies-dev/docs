@@ -46,6 +46,28 @@ limited to the realms their account owns.
 }
 ```
 
+## Guide your agent with CLAUDE.md
+
+Grab a ready-made **`CLAUDE.md`** from the console **MCP** tab (*Download CLAUDE.md*) and drop it
+into your project. It gives Claude the platform context, the safe-change rules (dry-run → confirm,
+never print secrets), and copy-ready task recipes — so a tenant admin gets guided, safe usage
+instead of trial-and-error. Keep it in your repo root next to where you run Claude.
+
+## Testing the connection
+
+<Steps>
+1. **MCP Inspector** (easiest): `npx @modelcontextprotocol/inspector` → Transport *Streamable HTTP*,
+   URL `https://mcp.savvytechies.com/`, header `Authorization: Bearer <token>`. Browse + invoke tools.
+2. **Claude Desktop / Claude Code**: use the config above, then ask *"list my realms."*
+3. **curl smoke test**:
+   ```bash
+   curl -s https://mcp.savvytechies.com/ -H "Authorization: Bearer $TOKEN" \
+     -H 'Content-Type: application/json' -H 'Accept: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   ```
+   No token returns `401`; a valid token lists the tools.
+</Steps>
+
 ## What you can call
 
 The MCP surface mirrors the assistant's commands:
