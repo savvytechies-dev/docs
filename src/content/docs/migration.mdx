@@ -60,12 +60,50 @@ carry across vendors are **private signing keys** — so after a cross-vendor cu
 ## Migrating the database (if you self-hosted Keycloak)
 
 Moving an existing Postgres-backed Keycloak into the platform uses standard Postgres tooling:
+**logical replication** (publication/subscription) or **AWS DMS** for continuous sync with minimal
+downtime. Physical/streaming replication isn't available *into* Aurora from arbitrary sources — use
+logical. See [Multi-Cloud](/docs/multi-cloud/) for the same mechanism cross-cloud.
 
-- **Logical replication** (publication/subscription) or **AWS DMS** for continuous sync with
-  minimal downtime. (Physical/streaming replication isn't available *into* Aurora from
-  arbitrary sources; use logical.) See [Multi-Cloud](/docs/multi-cloud/) for the same
-  mechanism cross-cloud.
-- Cut over when replication lag is ~0.
+<Aside type="note" title="Which path?">
+- **Realm export/import** (no DB access needed): export each realm to JSON and hand it to us via the
+  **Support** tab (secure presigned upload) — best for a handful of realms and a maintenance window.
+- **AWS DMS** (below): continuous, row-level sync of a large/live Keycloak database with near-zero
+  downtime at cutover.
+</Aside>
+
+### AWS DMS runbook (Keycloak Postgres → Aurora)
+
+<Steps>
+1. **Prep the source.** On your Keycloak's Postgres, enable logical decoding
+   (`wal_level = logical`, sufficient `max_replication_slots` / `max_wal_senders`) and create a
+   replication user with `REPLICATION` + read on the Keycloak schema. Note the DB host, port, name.
+2. **Network.** Give DMS a path to the source — VPC peering, VPN, or a public endpoint with SSL. The
+   target is your platform Aurora (we provide the target endpoint + a scoped user).
+3. **Create the DMS replication instance** (right-sized; `dms.t3.medium` is fine for most).
+4. **Endpoints.** Create a **source** endpoint (your Postgres, SSL on) and a **target** endpoint
+   (the platform Aurora). *Test* both from the replication instance.
+5. **Migration task** — type **Full load + CDC** (migrate existing rows, then stream changes).
+   Scope it to the Keycloak schema/tables. Enable **validation** so DMS row-compares source vs target.
+6. **Run & monitor.** Watch `CDCLatencySource`/`CDCLatencyTarget` and the validation state in
+   CloudWatch until full load completes and CDC latency is ~0.
+7. **Cut over.** In a low-traffic window: stop writes at the source, let CDC drain to ~0 lag, stop the
+   task, then flip the issuer/DNS to the platform (see Cutover below).
+8. **Verify** login success rate + token issuance on the [Analytics](/docs/analytics/) dashboards,
+   then decommission the source.
+</Steps>
+
+<Aside type="caution" title="Keycloak-specific gotchas">
+- **Keys & sessions:** realm signing keys live in the DB and migrate with it, preserving issuer
+  continuity. Active user *sessions* don't survive a cutover — users re-authenticate once.
+- **Schema/version parity:** the source Keycloak's DB schema must match the platform's Keycloak
+  version. If versions differ, upgrade the source first (or use the realm export/import path).
+- **`REALM`/`CLIENT` secrets** come across as-is; rotate any you'd prefer to refresh post-migration.
+- We assist with the target endpoint, the schema-parity check, and the cutover — raise a
+  migration request in the **Support** tab to kick it off.
+</Aside>
+
+Reference: [AWS DMS documentation](https://docs.aws.amazon.com/dms/latest/userguide/Welcome.html)
+and [PostgreSQL as a DMS source](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html).
 
 ## Cutover strategies
 
