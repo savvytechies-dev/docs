@@ -13,6 +13,9 @@ export default defineConfig({
       title: 'SavvyTechies Keycloak SaaS Docs',
       description:
         'How SavvyTechies runs managed Keycloak: architecture, HA, multi-cloud, migration, upgrades, realms, analytics, and security.',
+      // Use the SavvyTechies brand favicon (copied from the marketing site) instead
+      // of the default Astro/Starlight one.
+      favicon: '/favicon.svg',
       components: {
         // Two-line header: "SavvyTechies" (→ marketing home) over "Keycloak SaaS Docs".
         SiteTitle: './src/components/SiteTitle.astro',
