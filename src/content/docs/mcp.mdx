@@ -1,0 +1,68 @@
+---
+title: MCP server (connect an AI agent)
+description: Connect any Model Context Protocol client — Claude Desktop or your own agent — to your SavvyTechies workspace and drive it with the same scope-enforced commands the assistant uses.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The **MCP server** exposes your workspace to any [Model Context Protocol](https://modelcontextprotocol.io)
+client. It's the **same scope-enforced tool registry** the in-console assistant uses — so an
+external agent can create realms, add [SSO/federation](/docs/config/sso/) providers, register
+[apps](/docs/config/applications/), manage users, set [branding](/docs/config/branding/), and
+more, all through a standard protocol.
+
+<Aside type="note" title="Endpoint">
+`https://mcp.savvytechies.com/` — a stateless streamable-HTTP MCP endpoint.
+</Aside>
+
+## How scope works (security)
+
+Every request must carry your **bearer token** in the `Authorization` header. Scope is derived
+**per request** from that verified token — never from the tool arguments — so a client can only
+ever do what your account is allowed to do. Operators can target any realm; a tenant admin is
+limited to the realms their account owns.
+
+## Connect a client
+
+<Steps>
+1. Get an access token for your account (the console **MCP** tab has a *Copy my current access
+   token* button; for a long-lived client use a service account — ask us).
+2. Point your MCP client at the endpoint with the token in the `Authorization` header.
+3. List tools and call them — mutations stage a dry-run and require an explicit apply, exactly
+   like the assistant.
+</Steps>
+
+### Example client config
+
+```json
+{
+  "mcpServers": {
+    "savvytechies": {
+      "type": "http",
+      "url": "https://mcp.savvytechies.com/",
+      "headers": { "Authorization": "Bearer <YOUR_ACCESS_TOKEN>" }
+    }
+  }
+}
+```
+
+## What you can call
+
+The MCP surface mirrors the assistant's commands:
+
+- **Realms** — create, inspect, change.
+- **SSO & federation** — list and add identity providers (Google, Facebook, OIDC, SAML).
+- **Applications** — register OIDC and SAML clients, manage redirect URIs.
+- **Users & access** — create users, reset passwords, assign roles/groups.
+- **Branding & custom domains**, **support/incidents**, and **usage** reads.
+
+## Safety model
+
+- **Two-phase mutations** — a change first returns a dry-run proposal; it only runs after an
+  explicit apply. Reads run immediately.
+- **Secrets never transit the prompt** — e.g. an IdP client secret is supplied out-of-band and
+  referenced, never passed as an argument.
+
+## Related
+
+- [Single sign-on & federation](/docs/config/sso/) · [Applications](/docs/config/applications/) · [MCP specification](https://modelcontextprotocol.io)

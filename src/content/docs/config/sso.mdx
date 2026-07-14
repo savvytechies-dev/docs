@@ -1,45 +1,151 @@
 ---
-title: Single sign-on (SSO)
-description: Add external identity providers — Google, Microsoft Entra ID, Okta, generic OIDC/SAML, and LDAP/AD federation — to a SavvyTechies user pool.
+title: Single sign-on (SSO) & federation
+description: Step-by-step setup for external identity providers on a SavvyTechies user pool — Google, Facebook, Microsoft Entra ID, generic OIDC, SAML 2.0, and LDAP/Active Directory — with copy-paste examples and links to the Keycloak docs.
 ---
 
-import { CardGrid, Card } from '@astrojs/starlight/components';
+import { Aside, Steps, CardGrid, Card } from '@astrojs/starlight/components';
 
-Let users sign in with an identity they already have. Keycloak brokers external providers
-and federates directories.
+Let users sign in with an identity they already have. Keycloak (which powers your user
+pool) **brokers** external providers and **federates** directories.
 
 <CardGrid>
-  <Card title="Social & OIDC" icon="approve-check">Google, GitHub, Microsoft Entra ID, Okta, Ping, or any standard OpenID Connect provider.</Card>
-  <Card title="SAML 2.0" icon="seti:html">Any SAML identity provider as a login option.</Card>
+  <Card title="Social & OIDC" icon="approve-check">Google, Facebook, Microsoft Entra ID, GitHub, or any standard OpenID Connect provider.</Card>
+  <Card title="SAML 2.0" icon="seti:html">Any SAML identity provider (Okta, Ping, ADFS, OneLogin…).</Card>
   <Card title="LDAP / AD" icon="seti:db">Federate an existing directory as a user source.</Card>
 </CardGrid>
 
-## Add an identity provider
+## Brokering vs. federation
 
-- **Ask the assistant:** *"Add Google login to acme-prod"* or *"Add a SAML identity provider
-  for acme-prod with metadata URL https://idp.example.com/metadata."* The assistant stages the
-  provider and shows a dry-run before applying.
-- **Keycloak:** **Identity providers → Add provider**, then paste the provider's client
-  ID/secret (OIDC) or metadata (SAML).
-
-## What you'll need from the provider
-
-| Protocol | You provide to Keycloak | You give the provider |
-|---|---|---|
-| **OIDC** | Client ID + secret, issuer/discovery URL | Keycloak's redirect URI |
-| **SAML** | IdP metadata (or entityID + SSO URL + cert) | Keycloak's SP metadata / ACS URL |
-
-## Federation vs. brokering
-
-- **Brokering** (OIDC/SAML) — users authenticate at the external IdP; Keycloak issues its own
-  tokens. Best for "log in with Google/Okta."
+- **Brokering** (Google/Facebook/OIDC/SAML) — the user authenticates at the external IdP;
+  Keycloak then issues *its own* tokens to your app. Best for "Log in with Google/Okta."
 - **Federation** (LDAP/AD) — Keycloak reads users from a directory as if they were local.
 
-## Removing password cost
+<Aside type="note" title="Keycloak reference">
+Full details: the Keycloak Server Admin Guide —
+[Integrating identity providers](https://www.keycloak.org/docs/latest/server_admin/#_identity_broker).
+</Aside>
 
-Routing users to social/enterprise SSO removes password hashing and reset overhead — a real
-[cost lever](/docs/analytics/) as well as a security improvement.
+## The one value every broker needs: the redirect URI
+
+Every social/OIDC/SAML provider asks for a **redirect URI** (a.k.a. callback / ACS URL).
+For a SavvyTechies user pool it is always:
+
+```
+https://<your-auth-domain>/realms/<realm>/broker/<alias>/endpoint
+```
+
+- `<your-auth-domain>` — `auth.savvytechies.com`, or your [custom domain](/docs/config/branding/#custom-domain).
+- `<realm>` — your user-pool name (e.g. `acme-prod`).
+- `<alias>` — the provider alias you choose (e.g. `google`, `facebook`, `okta`).
+
+Example: `https://auth.savvytechies.com/realms/acme-prod/broker/google/endpoint`
+
+## Two ways to add any provider
+
+1. **Ask the assistant** — e.g. *"Add Google login to acme-prod"* or *"Add a SAML identity
+   provider for acme-prod using metadata https://idp.example.com/metadata."* It stages a
+   dry-run and applies on your confirmation.
+2. **Keycloak admin console** — realm → **Identity providers → Add provider** → pick the type.
+
+---
+
+## Google
+
+<Steps>
+1. In the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
+   **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**.
+2. Add the **Authorized redirect URI**:
+   `https://auth.savvytechies.com/realms/acme-prod/broker/google/endpoint`
+3. Copy the **Client ID** and **Client secret**.
+4. In Keycloak: **Identity providers → Google**, paste the Client ID + secret, save.
+</Steps>
+
+Default scopes are `openid profile email`. See the Keycloak
+[Google provider docs](https://www.keycloak.org/docs/latest/server_admin/#_google).
+
+## Facebook
+
+<Steps>
+1. In [Meta for Developers](https://developers.facebook.com/) → create an app → add
+   **Facebook Login**.
+2. Under Facebook Login → **Settings**, add the **Valid OAuth Redirect URI**:
+   `https://auth.savvytechies.com/realms/acme-prod/broker/facebook/endpoint`
+3. From **App settings → Basic**, copy the **App ID** and **App secret**.
+4. In Keycloak: **Identity providers → Facebook**, paste App ID (Client ID) + App secret
+   (Client secret), save.
+</Steps>
+
+See the Keycloak [Facebook provider docs](https://www.keycloak.org/docs/latest/server_admin/#_facebook).
+
+## Microsoft Entra ID (Azure AD) & other OIDC
+
+Microsoft Entra, Okta, Auth0, or any spec-compliant OpenID Connect provider use the generic
+**OpenID Connect v1.0** provider.
+
+<Steps>
+1. Register an application with the provider; set the redirect URI to
+   `https://auth.savvytechies.com/realms/acme-prod/broker/oidc/endpoint`.
+2. Get the **Client ID**, **Client secret**, and the provider's **discovery URL**
+   (`.../.well-known/openid-configuration`).
+3. In Keycloak: **Identity providers → OpenID Connect v1.0**. Paste the discovery URL into
+   **Import from URL** to auto-fill the endpoints, then add the Client ID + secret.
+</Steps>
+
+See [OpenID Connect v1.0 identity providers](https://www.keycloak.org/docs/latest/server_admin/#_identity_broker_oidc).
+
+## SAML 2.0 (Okta, Ping, ADFS, OneLogin…)
+
+<Steps>
+1. In your SAML IdP, create a new SAML app. Give it these Service Provider (SP) values —
+   Keycloak's SP metadata is at
+   `https://auth.savvytechies.com/realms/acme-prod/broker/saml/endpoint/descriptor`:
+   - **ACS / Reply URL:** `https://auth.savvytechies.com/realms/acme-prod/broker/saml/endpoint`
+   - **Entity ID / Audience:** `https://auth.savvytechies.com/realms/acme-prod`
+2. Download the IdP **metadata XML** (or note the SSO URL + signing certificate).
+3. In Keycloak: **Identity providers → SAML v2.0**, paste the IdP metadata URL into
+   **Import from URL** (or upload the XML). Set **NameID policy format** to match your IdP
+   (usually email or persistent).
+</Steps>
+
+<Aside type="tip">
+For an app *you* own that speaks SAML (a service provider), register it under
+[Applications → Register a SAML app](/docs/config/applications/#register-a-saml-app) instead —
+that's a client, not an identity provider.
+</Aside>
+
+See [SAML v2.0 identity providers](https://www.keycloak.org/docs/latest/server_admin/#saml-v2-0-identity-providers).
+
+## LDAP / Active Directory (federation)
+
+Federate an existing corporate directory so its users can sign in without a copy of their
+credentials in Keycloak.
+
+<Steps>
+1. In Keycloak: realm → **User federation → Add Ldap provider**.
+2. Set the **Connection URL** (`ldaps://ad.corp.example.com:636` — use LDAPS), **Bind DN**,
+   and **Bind credential** (a read service account).
+3. Set **Users DN** (e.g. `ou=users,dc=corp,dc=example,dc=com`) and the vendor (Active
+   Directory / other). Test the connection and authentication.
+4. Choose an **Edit mode** (READ_ONLY is safest) and, optionally, enable periodic sync.
+</Steps>
+
+<Aside type="caution" title="Reachability">
+LDAP/AD federation requires network reachability from the platform to your directory
+(VPN / private link). Talk to us before configuring — it isn't a public-internet setup like
+the social providers.
+</Aside>
+
+See [LDAP](https://www.keycloak.org/docs/latest/server_admin/#_ldap).
+
+## After a provider is added
+
+- **First-login flow** — on a user's first brokered login Keycloak runs the *first broker
+  login* flow (review profile, optionally link to an existing account by email).
+- **Account linking** — if a user already exists with the same email, Keycloak can link the
+  external identity to it rather than creating a duplicate.
+- **Mappers** — map IdP claims/attributes (groups, roles, name) onto the Keycloak user with
+  **identity provider mappers**.
 
 ## Related
 
-- [Applications](/docs/config/applications/) · [Realm Setup](/docs/realms/)
+- [Applications (clients)](/docs/config/applications/) · [Login branding](/docs/config/branding/) · [Realm Setup](/docs/realms/)
