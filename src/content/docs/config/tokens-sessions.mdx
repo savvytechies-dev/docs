@@ -1,0 +1,44 @@
+---
+title: Tokens & sessions
+description: Configure access-token lifespan, SSO session idle/max timeouts, and refresh-token rotation on a SavvyTechies user pool.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+These settings control how long credentials and sessions stay valid — the trade-off between
+convenience and the window a stolen token or session is usable.
+
+## Access-token lifespan
+
+How long an issued access token is accepted.
+
+- **Recommended:** short — **300 seconds (5 min)**, the default. Use refresh tokens for longevity.
+- **Ask the assistant:** *"Set the access-token lifespan to 5 minutes for acme-prod."*
+- **Keycloak:** Realm settings → **Tokens → Access Token Lifespan**.
+
+<Aside type="caution" title="Why it matters">
+A long-lived access token stays valid long after it leaks. The [Analyzer](/docs/config/)
+flags lifespans over 15 minutes.
+</Aside>
+
+## SSO session timeouts
+
+- **Idle timeout** — session ends after this much inactivity. Recommended: **30 min** (default).
+- **Max lifespan** — hard cap regardless of activity. Recommended: **10 hours** or less.
+- **Ask the assistant:** *"Set the SSO idle timeout to 30 minutes for acme-prod."*
+- **Keycloak:** Realm settings → **Sessions**.
+
+Keep idle timeouts short for pools accessed on shared or unattended devices.
+
+## Refresh-token rotation
+
+Whether a refresh token is invalidated when it's used (rotation).
+
+- **Recommended:** **on** — enable *Revoke refresh token* with a small max-reuse. A leaked
+  refresh token is then invalidated the next time the legitimate client rotates it.
+- **Ask the assistant:** *"Turn on refresh-token rotation for acme-prod."*
+- **Keycloak:** Realm settings → **Tokens → Revoke Refresh Token**.
+
+## Related
+
+- [Login & security](/docs/config/login-security/) · [Applications](/docs/config/applications/)

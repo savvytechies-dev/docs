@@ -1,0 +1,52 @@
+---
+title: Registration & email
+description: Configure self-registration, email verification, forgot-password, and login-with-email on a SavvyTechies user pool.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+How users get into the pool and how their email is handled.
+
+## Self-registration
+
+Whether visitors can create their own account from the login page.
+
+- **Recommended:** off unless you run a consumer/self-serve product. If on, **always pair it
+  with email verification**.
+- **Ask the assistant:** *"Enable self-registration for acme-prod."*
+- **Keycloak:** Realm settings → Login → **User registration**.
+
+<Aside type="caution" title="Why it matters">
+Self-registration without email verification lets anyone create a usable account under any
+address. The [Analyzer](/docs/config/) flags that combination.
+</Aside>
+
+## Email verification
+
+Confirms a user controls the email address before it's trusted.
+
+- **Recommended:** **on** for production pools.
+- **Ask the assistant:** *"Require email verification for acme-prod."*
+- **Keycloak:** Realm settings → Login → **Verify email**.
+
+Deliverability is handled by the platform (SPF/DKIM/DMARC aligned, custom MAIL FROM) so
+verification and reset emails land in the inbox, not spam.
+
+## Forgot password
+
+Lets users reset a forgotten password via an emailed link.
+
+- **Recommended:** on.
+- **Ask the assistant:** *"Enable forgot-password for acme-prod."*
+- **Keycloak:** Realm settings → Login → **Forgot password**.
+
+## Login with email
+
+Whether the username field also accepts the email address.
+
+- **Recommended:** on for most pools (friendlier); requires unique emails.
+- **Keycloak:** Realm settings → Login → **Login with email**.
+
+## Related
+
+- [Passwords & MFA](/docs/config/passwords-mfa/) · [Login branding](/docs/config/branding/)

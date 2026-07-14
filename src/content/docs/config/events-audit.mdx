@@ -1,0 +1,45 @@
+---
+title: Events & audit
+description: Configure user and admin event logging, retention, and where audit data flows on a SavvyTechies user pool.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Event logging is your audit trail — who logged in, what failed, and what an admin changed.
+
+## User events
+
+Login successes/failures, logouts, registrations, and credential changes.
+
+- **Recommended:** **on**, with a retention window that matches your compliance needs.
+- **Ask the assistant:** *"Turn on login event logging for acme-prod."*
+- **Keycloak:** Realm settings → **Events → User events settings**.
+
+<Aside type="caution" title="Why it matters">
+With events off there is no audit trail for a security investigation. The
+[Analyzer](/docs/config/) flags disabled user events as **medium** and disabled admin events as
+**low**.
+</Aside>
+
+## Admin events
+
+Every administrative change to the realm (clients, roles, flows, settings).
+
+- **Recommended:** **on**, with *Include representation* so the change detail is captured.
+- **Ask the assistant:** *"Enable admin event logging for acme-prod."*
+- **Keycloak:** Realm settings → **Events → Admin events settings**.
+
+## Where the data goes
+
+Events feed the platform's analytics/SIEM pipeline — exported and queryable for usage
+reporting and security signals (brute-force spikes, anomalous logins). See
+[Reporting & Analytics](/docs/analytics/) for the dashboards and the event pipeline.
+
+## Retention
+
+Set an expiry on stored events so the pool doesn't accumulate them unbounded; long-term audit
+copies live in the analytics pipeline, not the realm database.
+
+## Related
+
+- [Login & security](/docs/config/login-security/) · [Reporting & Analytics](/docs/analytics/)

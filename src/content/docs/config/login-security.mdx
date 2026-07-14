@@ -1,0 +1,55 @@
+---
+title: Login & security
+description: Configure TLS enforcement, brute-force protection, browser security headers, and remember-me on a SavvyTechies user pool.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+These settings protect the login flow itself — the transport, the credential-guessing
+surface, and the browser.
+
+## Require TLS
+
+Whether the realm accepts plaintext HTTP.
+
+- **Recommended:** `external requests` (the default). Never `none` in production.
+- **Ask the assistant:** *"Require SSL for all external requests on acme-prod."*
+- **Keycloak:** Realm settings → General → **Require SSL**.
+
+<Aside type="danger" title="Why it matters">
+With TLS not required, tokens and passwords can be intercepted in transit. The
+[Analyzer](/docs/config/) flags `sslRequired=none` as **critical**.
+</Aside>
+
+## Brute-force protection
+
+Locks an account after repeated failed logins to stop password-guessing and
+credential-stuffing.
+
+- **Recommended:** **on**, with *temporary* lockout and an increasing back-off.
+- **Ask the assistant:** *"Turn on brute-force protection for acme-prod."*
+- **Keycloak:** Realm settings → **Security defenses → Brute force detection**.
+
+Prefer temporary lockout over **permanent** lockout — permanent lockout lets an attacker
+disable known usernames (a denial-of-service lever).
+
+## Browser security headers
+
+Keycloak sends a set of hardening headers with every login page.
+
+- **Recommended:** keep the defaults — `X-Frame-Options: SAMEORIGIN` (anti-clickjacking),
+  a restrictive `Content-Security-Policy`, `X-Content-Type-Options: nosniff`.
+- **Keycloak:** Realm settings → **Security defenses → Headers**.
+
+## Remember me
+
+Lets users keep a session across browser restarts.
+
+- **Recommended:** off for sensitive/admin pools; on is acceptable for consumer apps with
+  a short SSO max lifespan.
+- **Ask the assistant:** *"Enable remember-me for acme-prod."*
+- **Keycloak:** Realm settings → Login → **Remember me**.
+
+## Related
+
+- [Passwords & MFA](/docs/config/passwords-mfa/) · [Tokens & sessions](/docs/config/tokens-sessions/) · [Advanced Security](/docs/security/)

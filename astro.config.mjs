@@ -44,6 +44,20 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Configuring your user pool',
+          items: [
+            { label: 'Overview', slug: 'config' },
+            { label: 'Login & security', slug: 'config/login-security' },
+            { label: 'Passwords & MFA', slug: 'config/passwords-mfa' },
+            { label: 'Tokens & sessions', slug: 'config/tokens-sessions' },
+            { label: 'Registration & email', slug: 'config/registration' },
+            { label: 'Single sign-on (SSO)', slug: 'config/sso' },
+            { label: 'Applications (clients)', slug: 'config/applications' },
+            { label: 'Login branding', slug: 'config/branding' },
+            { label: 'Events & audit', slug: 'config/events-audit' },
+          ],
+        },
+        {
           label: 'Features',
           items: [
             { label: 'Reporting & Analytics', slug: 'analytics' },
