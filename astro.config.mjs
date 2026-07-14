@@ -62,6 +62,7 @@ export default defineConfig({
           items: [
             { label: 'Reporting & Analytics', slug: 'analytics' },
             { label: 'Advanced Security', slug: 'security' },
+            { label: 'MCP server (AI agents)', slug: 'mcp' },
           ],
         },
         { label: 'About', items: [{ label: 'Roadmap', slug: 'roadmap' }] },
